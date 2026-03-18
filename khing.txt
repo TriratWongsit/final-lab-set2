@@ -1,0 +1,55 @@
+AUTH_URL="https://auth-service-production-6d6f.up.railway.app"
+TASK_URL="https://task-production-7409.up.railway.app"
+ACTIVITY_URL="https://activity-production-786c.up.railway.app"
+
+# T2: Register
+curl -X POST $AUTH_URL/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"sec2user","email":"sec2@test.com","password":"123456"}'
+
+# T3: Login → เก็บ token
+TOKEN=$(curl -s -X POST $AUTH_URL/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"sec2@test.com","password":"123456"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+echo "TOKEN: $TOKEN"
+
+# T4: Auth Me
+curl $AUTH_URL/api/auth/me -H "Authorization: Bearer $TOKEN"
+
+# T5: ตรวจ USER_REGISTERED + USER_LOGIN ใน activity/me
+curl $ACTIVITY_URL/api/activity/me -H "Authorization: Bearer $TOKEN"
+
+# T6: Create Task แล้วตรวจ TASK_CREATED ใน activity/me
+curl -X POST $TASK_URL/api/tasks \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Cloud activity test","priority":"high"}'
+
+curl $ACTIVITY_URL/api/activity/me -H "Authorization: Bearer $TOKEN"
+
+# T7: Update Task status → TASK_STATUS_CHANGED
+TASK_ID=1
+curl -X PUT $TASK_URL/api/tasks/$TASK_ID \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"DONE"}'
+
+curl "$ACTIVITY_URL/api/activity/me?event_type=TASK_STATUS_CHANGED" \
+  -H "Authorization: Bearer $TOKEN"
+
+# T8: Get Tasks
+curl $TASK_URL/api/tasks -H "Authorization: Bearer $TOKEN"
+
+# T9: ไม่มี JWT → 401
+curl $TASK_URL/api/tasks
+curl $ACTIVITY_URL/api/activity/me
+
+# T10: admin GET /activity/all
+ADMIN_TOKEN=$(curl -s -X POST $AUTH_URL/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@lab.local","password":"adminpass"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl $ACTIVITY_URL/api/activity/all -H "Authorization: Bearer $ADMIN_TOKEN"  # 200
+curl $ACTIVITY_URL/api/activity/all -H "Authorization: Bearer $TOKEN"         # 403
