@@ -1,5 +1,5 @@
 {
-  "name": "task-service",
+  "name": "log-service",
   "version": "2.0.0",
   "scripts": { "start": "node src/index.js" },
   "dependencies": {

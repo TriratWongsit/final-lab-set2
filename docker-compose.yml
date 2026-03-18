@@ -1,88 +1,162 @@
-version: '3.8'
-
 services:
-  # ── Databases ─────────────────────────────────────────────
+
+  # ══════════════════════════════════════════════
+  # DATABASES (แยกต่อ service — Database per Service)
+  # ══════════════════════════════════════════════
+
   auth-db:
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
-      POSTGRES_DB: authdb
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret123}
+      POSTGRES_DB:       auth_db
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - auth-pgdata:/var/lib/postgresql/data
-      - ./auth-service/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks: [app-network]
+      - auth_db_data:/var/lib/postgresql/data
+      - ./db/auth/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [taskboard-net]
+
+  user-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB:       user_db
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+      - ./db/user/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [taskboard-net]
 
   task-db:
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
-      POSTGRES_DB: taskdb
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret123}
+      POSTGRES_DB:       task_db
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - task-pgdata:/var/lib/postgresql/data
-      - ./task-service/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks: [app-network]
+      - task_db_data:/var/lib/postgresql/data
+      - ./db/task/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d task_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [taskboard-net]
 
-  activity-db:
-    image: postgres:15
+  log-db:
+    image: postgres:15-alpine
     environment:
-      POSTGRES_DB: activitydb
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret123}
+      POSTGRES_DB:       log_db
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - activity-pgdata:/var/lib/postgresql/data
-      - ./activity-service/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks: [app-network]
+      - log_db_data:/var/lib/postgresql/data
+      - ./db/log/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d log_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [taskboard-net]
 
-  # ── Services ──────────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-    depends_on: [auth-service, task-service, activity-service, frontend]
-    networks: [app-network]
+  # ══════════════════════════════════════════════
+  # SERVICES
+  # ══════════════════════════════════════════════
 
   auth-service:
     build: ./auth-service
     environment:
-      DATABASE_URL: postgres://admin:${DB_PASSWORD:-secret123}@auth-db:5432/authdb
-      JWT_SECRET: ${JWT_SECRET:-engse207-secret}
-      JWT_EXPIRES: ${JWT_EXPIRES:-1h}
-      ACTIVITY_SERVICE_URL: http://activity-service:3000
-    depends_on: [auth-db]
-    networks: [app-network]
+      DB_HOST:     auth-db
+      DB_PORT:     5432
+      DB_NAME:     auth_db
+      DB_USER:     ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET:  ${JWT_SECRET}
+      JWT_EXPIRES: ${JWT_EXPIRES}
+      PORT:        3001
+    depends_on:
+      auth-db: { condition: service_healthy }
+    networks: [taskboard-net]
+    restart: unless-stopped
+
+  user-service:
+    build: ./user-service
+    environment:
+      DB_HOST:     user-db
+      DB_PORT:     5432
+      DB_NAME:     user_db
+      DB_USER:     ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET:  ${JWT_SECRET}
+      PORT:        3004
+    depends_on:
+      user-db: { condition: service_healthy }
+    networks: [taskboard-net]
+    restart: unless-stopped
 
   task-service:
     build: ./task-service
     environment:
-      DATABASE_URL: postgres://admin:${DB_PASSWORD:-secret123}@task-db:5432/taskdb
-      JWT_SECRET: ${JWT_SECRET:-engse207-secret}
-      ACTIVITY_SERVICE_URL: http://activity-service:3000
-    depends_on: [task-db, activity-service]
-    networks: [app-network]
+      DB_HOST:     task-db
+      DB_PORT:     5432
+      DB_NAME:     task_db
+      DB_USER:     ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET:  ${JWT_SECRET}
+      PORT:        3002
+    depends_on:
+      task-db: { condition: service_healthy }
+    networks: [taskboard-net]
+    restart: unless-stopped
 
-  activity-service:
-    build: ./activity-service
+  log-service:
+    build: ./log-service
     environment:
-      DATABASE_URL: postgres://admin:${DB_PASSWORD:-secret123}@activity-db:5432/activitydb
-      JWT_SECRET: ${JWT_SECRET:-engse207-secret}
-    depends_on: [activity-db]
-    networks: [app-network]
+      DB_HOST:     log-db
+      DB_PORT:     5432
+      DB_NAME:     log_db
+      DB_USER:     ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET:  ${JWT_SECRET}
+      PORT:        3003
+    depends_on:
+      log-db: { condition: service_healthy }
+    networks: [taskboard-net]
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
-    networks: [app-network]
+    networks: [taskboard-net]
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - auth-service
+      - user-service
+      - task-service
+      - log-service
+      - frontend
+    networks: [taskboard-net]
+    restart: unless-stopped
 
 volumes:
-  auth-pgdata:
-  task-pgdata:
-  activity-pgdata:
+  auth_db_data:
+  user_db_data:
+  task_db_data:
+  log_db_data:
 
 networks:
-  app-network:
+  taskboard-net:
     driver: bridge

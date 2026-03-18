@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 Log Dashboard — Final Lab Set 1</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #e2e8f0; --muted: #94a3b8;
+      --blue: #3b82f6; --green: #22c55e; --yellow: #f59e0b;
+      --red: #ef4444; --purple: #a855f7;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Header */
+    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .85rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 1.1rem; font-weight: 700; }
+    .header-right { display: flex; gap: 1rem; align-items: center; }
+
+    /* Container */
+    .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; padding: 1rem 1.25rem; }
+    .stat-label { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; margin-top: .25rem; }
+
+    /* Filter */
+    .filter-bar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+    .filter-bar input, .filter-bar select {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: .45rem .75rem; border-radius: .5rem; font-size: .85rem; outline: none;
+      transition: border-color .2s;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: var(--blue); }
+    .filter-bar input { flex: 1; min-width: 200px; }
+    .btn { padding: .45rem 1rem; border-radius: .5rem; border: none; cursor: pointer; font-size: .85rem; font-weight: 600; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary   { background: var(--blue);      color: #fff; }
+    .btn-secondary { background: var(--surface);   color: var(--text); border: 1px solid var(--border); }
+    .btn-warning   { background: var(--yellow);    color: #000; }
+
+    /* Log Table */
+    .log-table { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; overflow: hidden; }
+    .log-table-header {
+      display: grid;
+      grid-template-columns: 160px 120px 75px 150px 1fr;
+      gap: .5rem; padding: .6rem 1rem;
+      background: #1a2d45; font-size: .72rem; color: var(--muted);
+      font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 160px 120px 75px 150px 1fr;
+      gap: .5rem; padding: .65rem 1rem;
+      border-top: 1px solid var(--border); font-size: .82rem; align-items: center;
+      transition: background .1s;
+    }
+    .log-row:hover { background: rgba(255,255,255,.03); }
+    .badge { padding: .15rem .55rem; border-radius: .3rem; font-size: .7rem; font-weight: 700; }
+    .badge-INFO  { background: rgba(34,197,94,.15);  color: #4ade80; }
+    .badge-WARN  { background: rgba(245,158,11,.15); color: #fbbf24; }
+    .badge-ERROR { background: rgba(239,68,68,.15);  color: #f87171; }
+    .service-tag { font-size: .72rem; padding: .15rem .5rem; border-radius: .3rem; background: rgba(59,130,246,.15); color: var(--blue); }
+    .event-tag { font-family: 'Courier New', monospace; font-size: .75rem; color: var(--purple); }
+    .time-text { color: var(--muted); font-size: .75rem; font-family: 'Courier New', monospace; }
+    .msg-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta-text { color: var(--muted); font-size: .72rem; }
+    .empty { text-align: center; padding: 3rem; color: var(--muted); font-size: .9rem; }
+
+    /* Login Overlay */
+    #login-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; width: 100%; max-width: 360px; }
+    .login-box h2 { margin-bottom: .5rem; }
+    .login-box p  { font-size: .82rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: .35rem; }
+    .form-group input {
+      width: 100%; background: #0f172a; border: 1px solid var(--border);
+      color: var(--text); padding: .6rem .75rem; border-radius: .5rem; font-size: .9rem; outline: none;
+    }
+    .error-text { color: var(--red); font-size: .82rem; margin-top: .5rem; }
+  </style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>📊 Log Dashboard</h2>
+    <p>ต้องใช้บัญชี <strong>admin</strong> เท่านั้น</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input id="l-email" type="email" value="admin@lab.local">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="l-pass" type="password" value="adminpass"
+             onkeydown="if(event.key==='Enter') dashLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="dashLogin()">เข้าสู่ระบบ</button>
+    <p class="error-text" id="l-err"></p>
+    <div style="margin-top:1rem;padding:.65rem;background:rgba(59,130,246,.08);border-radius:.5rem;font-size:.78rem;color:var(--muted)">
+      admin@lab.local / adminpass
+    </div>
+  </div>
+</div>
+
+<!-- Main Dashboard -->
+<div class="header">
+  <h1>📊 Log Dashboard — Task Board Final Lab Set 1</h1>
+  <div class="header-right">
+    <span id="logged-as" style="font-size:.82rem;color:var(--muted)"></span>
+    <button class="btn btn-secondary" onclick="toggleAutoRefresh()" id="refresh-btn">⏸ Auto: ON</button>
+    <a href="index.html" style="color:var(--blue);font-size:.85rem;text-decoration:none">← Task Board</a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Stats Row -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Logs</div>
+      <div class="stat-value" id="stat-total" style="color:var(--text)">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--green)">INFO</div>
+      <div class="stat-value" style="color:var(--green)" id="stat-info">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--yellow)">WARN</div>
+      <div class="stat-value" style="color:var(--yellow)" id="stat-warn">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--red)">ERROR</div>
+      <div class="stat-value" style="color:var(--red)" id="stat-error">—</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <input id="f-search" type="text" placeholder="🔍 ค้นหา event / message..."
+           oninput="filterLogs()">
+    <select id="f-service" onchange="loadLogs()">
+      <option value="">Service: ทั้งหมด</option>
+      <option value="auth-service">auth-service</option>
+      <option value="task-service">task-service</option>
+    </select>
+    <select id="f-level" onchange="loadLogs()">
+      <option value="">Level: ทั้งหมด</option>
+      <option value="INFO">INFO</option>
+      <option value="WARN">WARN</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadLogs()">🔄 โหลดใหม่</button>
+    <button class="btn btn-secondary" onclick="clearFilters()">✕ ล้าง</button>
+  </div>
+
+  <!-- Log Table -->
+  <div class="log-table">
+    <div class="log-table-header">
+      <div>เวลา</div>
+      <div>Service</div>
+      <div>Level</div>
+      <div>Event</div>
+      <div>Message / Meta</div>
+    </div>
+    <div id="log-rows"><div class="empty">⏳ กำลังโหลด...</div></div>
+  </div>
+  <p id="last-refresh" style="font-size:.75rem;color:var(--muted);text-align:right;margin-top:.5rem"></p>
+</div>
+
+<script>
+const API = '';
+let token = localStorage.getItem('jwt_token');
+let autoRefresh  = true;
+let refreshTimer = null;
+let allLogs      = [];
+
+// ── Login ─────────────────────────────────────────────────────────────
+async function dashLogin() {
+  const email    = document.getElementById('l-email').value.trim();
+  const password = document.getElementById('l-pass').value;
+  try {
+    const res  = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (data.user.role !== 'admin') {
+        document.getElementById('l-err').textContent = '⛔ หน้านี้สำหรับ admin เท่านั้น';
+        return;
+      }
+      token = data.token;
+      localStorage.setItem('jwt_token', token);
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('logged-as').textContent = `👤 ${data.user.username} (${data.user.role})`;
+      loadStats();
+      loadLogs();
+      startAutoRefresh();
+    } else {
+      document.getElementById('l-err').textContent = '❌ ' + (data.error || 'Login ล้มเหลว');
+    }
+  } catch (e) {
+    document.getElementById('l-err').textContent = '❌ ไม่สามารถเชื่อมต่อ server';
+  }
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res  = await fetch(`${API}/api/logs/stats`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const total = data.by_level.reduce((s, r) => s + parseInt(r.count), 0);
+    document.getElementById('stat-total').textContent = total;
+    const find = lv => { const r = data.by_level.find(r => r.level === lv); return r ? r.count : 0; };
+    document.getElementById('stat-info').textContent  = find('INFO');
+    document.getElementById('stat-warn').textContent  = find('WARN');
+    document.getElementById('stat-error').textContent = find('ERROR');
+  } catch (_) {}
+}
+
+// ── Load Logs ─────────────────────────────────────────────────────────
+async function loadLogs() {
+  const service = document.getElementById('f-service').value;
+  const level   = document.getElementById('f-level').value;
+  const params  = new URLSearchParams({ limit: 200 });
+  if (service) params.set('service', service);
+  if (level)   params.set('level',   level);
+
+  try {
+    const res = await fetch(`${API}/api/logs/?${params}`, { headers: authHeaders() });
+    if (res.status === 401) { document.getElementById('login-overlay').style.display = 'flex'; return; }
+    if (res.status === 403) {
+      document.getElementById('log-rows').innerHTML = '<div class="empty" style="color:#f87171">⛔ หน้านี้สำหรับ admin เท่านั้น</div>';
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    allLogs = data.logs || [];
+    filterLogs();
+    loadStats();
+    document.getElementById('last-refresh').textContent =
+      `อัปเดต: ${new Date().toLocaleTimeString('th-TH')} | ${allLogs.length}/${data.total} รายการ`;
+  } catch (e) {
+    document.getElementById('log-rows').innerHTML = '<div class="empty">❌ โหลดไม่สำเร็จ</div>';
+  }
+}
+
+function filterLogs() {
+  const q = document.getElementById('f-search').value.trim().toLowerCase();
+  const filtered = q
+    ? allLogs.filter(l =>
+        (l.event   || '').toLowerCase().includes(q) ||
+        (l.message || '').toLowerCase().includes(q) ||
+        (l.service || '').toLowerCase().includes(q)
+      )
+    : allLogs;
+  renderLogs(filtered);
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function renderLogs(logs) {
+  const container = document.getElementById('log-rows');
+  if (!logs.length) {
+    container.innerHTML = '<div class="empty">📭 ไม่พบ log ที่ตรงกัน</div>';
+    return;
+  }
+  container.innerHTML = logs.map(log => {
+    const time = new Date(log.created_at).toLocaleString('th-TH', {
+      year: '2-digit', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    const metaStr = log.meta ? ' • ' + JSON.stringify(log.meta) : '';
+    return `<div class="log-row">
+      <div class="time-text">${escHtml(time)}</div>
+      <div><span class="service-tag">${escHtml(log.service)}</span></div>
+      <div><span class="badge badge-${log.level}">${log.level}</span></div>
+      <div class="event-tag">${escHtml(log.event)}</div>
+      <div class="msg-cell" title="${escHtml((log.message||'') + metaStr)}">
+        ${escHtml(log.message || '—')}
+        ${metaStr ? `<span class="meta-text">${escHtml(metaStr)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Auto Refresh ──────────────────────────────────────────────────────
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => { if (autoRefresh) loadLogs(); }, 5000);
+}
+
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  document.getElementById('refresh-btn').textContent = autoRefresh ? '⏸ Auto: ON' : '▶ Auto: OFF';
+}
+
+function clearFilters() {
+  document.getElementById('f-service').value = '';
+  document.getElementById('f-level').value   = '';
+  document.getElementById('f-search').value  = '';
+  loadLogs();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Auto-login if token exists ────────────────────────────────────────
+if (token) {
+  (async () => {
+    try {
+      const res  = await fetch(`${API}/api/auth/verify`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.valid && data.user.role === 'admin') {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('logged-as').textContent = `👤 ${data.user.username} (${data.user.role})`;
+        loadStats(); loadLogs(); startAutoRefresh();
+      } else {
+        localStorage.removeItem('jwt_token'); token = null;
+        document.getElementById('l-err').textContent = 'Session หมดอายุ กรุณา Login ใหม่';
+      }
+    } catch (_) { localStorage.removeItem('jwt_token'); token = null; }
+  })();
+}
+</script>
+</body>
+</html>

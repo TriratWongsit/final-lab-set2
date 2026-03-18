@@ -1,113 +1,110 @@
-const express   = require('express');
-const router    = express.Router();
-const axios     = require('axios');
-const pool      = require('../db/db');
-const authMiddleware = require('../middleware/authMiddleware');
+const express     = require('express');
+const { pool }    = require('../db/db');
+const requireAuth = require('../middleware/authMiddleware');
 
-// ── helper: ส่ง activity event แบบ fire-and-forget ──────────
-const logActivity = (event_type, user_id, entity_id, metadata = {}) => {
-  const url = process.env.ACTIVITY_SERVICE_URL;
-  if (!url) return;
-  axios.post(`${url}/api/activities/internal`, {
-    service:     'task-service',
-    event_type,
-    user_id,
-    entity_type: 'task',
-    entity_id,
-    metadata,
-  }).catch(err => console.error('[logActivity]', err.message));
-};
+const router = express.Router();
 
-// ── GET /api/tasks/health ────────────────────────────────────
-router.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', service: 'task-service' });
-});
-
-// ── GET /api/tasks/ ──────────────────────────────────────────
-router.get('/', authMiddleware, async (req, res) => {
+async function logEvent(payload) {
   try {
-    const result = await pool.query(
-      'SELECT * FROM tasks ORDER BY created_at DESC'
-    );
-    res.status(200).json(result.rows);
+    await fetch('http://log-service:3003/api/logs/internal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service: 'task-service', ...payload })
+    });
+  } catch (_) {}
+}
+
+router.get('/health', (_, res) =>
+  res.json({ status: 'ok', service: 'task-service', version: '2.0.0' })
+);
+
+router.use(requireAuth);
+
+// GET /api/tasks/ — admin เห็นทั้งหมด, member เห็นของตัวเอง
+router.get('/', async (req, res) => {
+  try {
+    let result;
+    if (req.user.role === 'admin') {
+      result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
+    } else {
+      result = await pool.query(
+        'SELECT * FROM tasks WHERE user_id=$1 ORDER BY created_at DESC',
+        [req.user.sub]
+      );
+    }
+    res.json({ tasks: result.rows, count: result.rowCount });
   } catch (err) {
-    console.error('[getTasks]', err.message);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ── POST /api/tasks/ ─────────────────────────────────────────
-router.post('/', authMiddleware, async (req, res) => {
-  const { title, description, status, assigned_to } = req.body;
-
-  if (!title)
-    return res.status(400).json({ error: 'title จำเป็นต้องกรอก' });
-
+// POST /api/tasks/
+router.post('/', async (req, res) => {
+  const { title, description, status = 'TODO', priority = 'medium' } = req.body;
+  if (!title) return res.status(400).json({ error: 'title is required' });
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, status, assigned_to, created_by)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [title, description || null, status || 'todo', assigned_to || null, req.user.id]
-    );
-    const task = result.rows[0];
-
-    logActivity('task_created', req.user.id, task.id, { title, status: task.status });
-
-    res.status(201).json(task);
-  } catch (err) {
-    console.error('[createTask]', err.message);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
-  }
-});
-
-// ── PUT /api/tasks/:id ───────────────────────────────────────
-router.put('/:id', authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { title, description, status, assigned_to } = req.body;
-
-  try {
-    const existing = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
-    if (!existing.rows.length)
-      return res.status(404).json({ error: 'ไม่พบ task นี้' });
-
-    const result = await pool.query(
-      `UPDATE tasks
-       SET title       = COALESCE($1, title),
-           description = COALESCE($2, description),
-           status      = COALESCE($3, status),
-           assigned_to = COALESCE($4, assigned_to),
-           updated_at  = NOW()
-       WHERE id = $5 RETURNING *`,
-      [title, description, status, assigned_to, id]
+      `INSERT INTO tasks (user_id, username, title, description, status, priority)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [req.user.sub, req.user.username, title, description, status, priority]
     );
     const task = result.rows[0];
-
-    logActivity('task_updated', req.user.id, task.id, { title: task.title, status: task.status });
-
-    res.status(200).json(task);
+    await logEvent({
+      level: 'INFO', event: 'TASK_CREATED', user_id: req.user.sub,
+      method: 'POST', path: '/api/tasks', status_code: 201,
+      message: `Task created: "${title}"`, meta: { task_id: task.id }
+    });
+    res.status(201).json({ task });
   } catch (err) {
-    console.error('[updateTask]', err.message);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ── DELETE /api/tasks/:id ────────────────────────────────────
-router.delete('/:id', authMiddleware, async (req, res) => {
+// PUT /api/tasks/:id
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-
   try {
-    const existing = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
-    if (!existing.rows.length)
-      return res.status(404).json({ error: 'ไม่พบ task นี้' });
+    const check = await pool.query('SELECT * FROM tasks WHERE id=$1', [id]);
+    if (!check.rows[0]) return res.status(404).json({ error: 'Task not found' });
+    if (check.rows[0].user_id !== req.user.sub && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Forbidden' });
 
-    await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
-
-    logActivity('task_deleted', req.user.id, parseInt(id), { task_id: id });
-
-    res.status(200).json({ message: 'ลบ task สำเร็จ' });
+    const { title, description, status, priority } = req.body;
+    const result = await pool.query(
+      `UPDATE tasks SET
+         title=$1, description=$2, status=$3, priority=$4, updated_at=NOW()
+       WHERE id=$5 RETURNING *`,
+      [
+        title       ?? check.rows[0].title,
+        description ?? check.rows[0].description,
+        status      ?? check.rows[0].status,
+        priority    ?? check.rows[0].priority,
+        id
+      ]
+    );
+    res.json({ task: result.rows[0] });
   } catch (err) {
-    console.error('[deleteTask]', err.message);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /api/tasks/:id
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const check = await pool.query('SELECT * FROM tasks WHERE id=$1', [id]);
+    if (!check.rows[0]) return res.status(404).json({ error: 'Task not found' });
+    if (check.rows[0].user_id !== req.user.sub && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Forbidden' });
+    await pool.query('DELETE FROM tasks WHERE id=$1', [id]);
+    await logEvent({
+      level: 'INFO', event: 'TASK_DELETED', user_id: req.user.sub,
+      method: 'DELETE', path: `/api/tasks/${id}`, status_code: 200,
+      message: `Task ${id} deleted`
+    });
+    res.json({ message: 'Task deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
