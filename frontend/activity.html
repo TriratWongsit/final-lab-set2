@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Activity Timeline — ENGSE207</title>
+  <script src="config.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:sans-serif;background:#f0f2f5;color:#333}
+    header{background:#2c3e50;color:#fff;padding:13px 24px;display:flex;justify-content:space-between;align-items:center}
+    header .logo{font-size:17px;font-weight:700}
+    header nav a{color:#bdc3c7;text-decoration:none;margin-left:18px;font-size:14px}
+    header nav a:hover{color:#fff}
+    .container{max-width:760px;margin:28px auto;padding:0 16px}
+    .card{background:#fff;border-radius:8px;padding:20px 24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.09)}
+    .card h2{font-size:16px;margin-bottom:16px;color:#2c3e50}
+
+    /* Stats */
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+    .stat-box{background:#f8fafc;border-radius:8px;padding:14px;text-align:center;border:1px solid #e8e8e8}
+    .stat-num{font-size:28px;font-weight:700;color:#2c3e50}
+    .stat-label{font-size:11px;color:#666;margin-top:3px}
+
+    /* Filter */
+    .filter-row{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+    .filter-row label{font-size:13px;color:#555;white-space:nowrap}
+    select,button{padding:7px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px}
+    button{background:#2c3e50;color:#fff;border-color:#2c3e50;cursor:pointer;font-weight:600}
+    button:hover{background:#34495e}
+
+    /* Timeline */
+    .timeline{position:relative;padding-left:28px}
+    .timeline::before{content:'';position:absolute;left:9px;top:0;bottom:0;width:2px;background:#e2e8f0}
+    .tl-item{position:relative;margin-bottom:18px}
+    .tl-dot{position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #cbd5e1}
+    .dot-task-created  {background:#3b82f6}
+    .dot-task-updated  {background:#f59e0b}
+    .dot-task-deleted  {background:#ef4444}
+    .dot-user-login    {background:#10b981}
+    .dot-user-registered{background:#8b5cf6}
+    .dot-default       {background:#94a3b8}
+    .tl-content{background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:12px 14px}
+    .tl-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+    .tl-event{font-weight:700;font-size:14px}
+    .tl-time{font-size:11px;color:#94a3b8}
+    .tl-meta{font-size:12px;color:#64748b;margin-top:2px}
+    .badge-service{display:inline-block;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:600;margin-right:4px}
+    .svc-auth{background:#ede9fe;color:#5b21b6}
+    .svc-task{background:#dbeafe;color:#1e40af}
+    .svc-default{background:#f1f5f9;color:#475569}
+
+    .empty{text-align:center;color:#aaa;padding:32px 0;font-size:14px}
+    #spinner{text-align:center;padding:24px;color:#94a3b8;font-size:14px}
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">⚡ Activity Timeline</span>
+  <nav>
+    <a href="index.html">📋 Tasks</a>
+    <a href="#" onclick="logout()">ออกจากระบบ</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="card">
+    <h2>📊 สถิติ Activity</h2>
+    <div id="stats" class="stats-grid"><p style="color:#aaa;font-size:13px">กำลังโหลด...</p></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card">
+    <h2>🕐 Timeline</h2>
+
+    <div class="filter-row">
+      <label>กรอง:</label>
+      <select id="filter-event" onchange="loadActivities()">
+        <option value="">ทั้งหมด</option>
+        <option value="task_created">task_created</option>
+        <option value="task_updated">task_updated</option>
+        <option value="task_deleted">task_deleted</option>
+        <option value="user_login">user_login</option>
+        <option value="user_registered">user_registered</option>
+      </select>
+      <select id="filter-service" onchange="loadActivities()">
+        <option value="">ทุก service</option>
+        <option value="auth-service">auth-service</option>
+        <option value="task-service">task-service</option>
+      </select>
+      <button onclick="loadActivities()">🔄 รีเฟรช</button>
+    </div>
+
+    <div id="timeline"><div id="spinner">กำลังโหลด...</div></div>
+  </div>
+
+</div>
+
+<script>
+const TOKEN = sessionStorage.getItem('token');
+const USER  = JSON.parse(sessionStorage.getItem('user') || 'null');
+if (!TOKEN) location.href = 'index.html';
+
+window.onload = () => { loadStats(); loadActivities(); };
+
+function logout() { sessionStorage.clear(); location.href = 'index.html'; }
+
+// ── Stats ───────────────────────────────────────────────────
+async function loadStats() {
+  const el = document.getElementById('stats');
+  try {
+    const res  = await fetch(`${CONFIG.ACTIVITY_URL}/api/activities/stats`, {
+      headers: {'Authorization': `Bearer ${TOKEN}`},
+    });
+    if (res.status === 401) { location.href = 'index.html'; return; }
+    if (res.status === 403) { el.innerHTML = '<p style="color:#e74c3c;font-size:13px">⚠️ เฉพาะ Admin เท่านั้น</p>'; return; }
+    const data = await res.json();
+    if (!data.length) { el.innerHTML = '<p class="empty">ยังไม่มีข้อมูล</p>'; return; }
+    el.innerHTML = data.map(s => `
+      <div class="stat-box">
+        <div class="stat-num">${s.count}</div>
+        <div class="stat-label">${s.event_type}<br/><span style="color:#94a3b8">${s.service}</span></div>
+      </div>`).join('');
+  } catch { el.innerHTML = '<p style="color:red;font-size:13px">โหลดสถิติไม่สำเร็จ</p>'; }
+}
+
+// ── Timeline ────────────────────────────────────────────────
+async function loadActivities() {
+  const tl          = document.getElementById('timeline');
+  const filterEvent = document.getElementById('filter-event').value;
+  const filterSvc   = document.getElementById('filter-service').value;
+  tl.innerHTML      = '<div id="spinner">กำลังโหลด...</div>';
+
+  try {
+    const res = await fetch(`${CONFIG.ACTIVITY_URL}/api/activities/`, {
+      headers: {'Authorization': `Bearer ${TOKEN}`},
+    });
+    if (res.status === 401) { location.href = 'index.html'; return; }
+    if (res.status === 403) {
+      tl.innerHTML = '<p class="empty" style="color:#e74c3c">⚠️ เฉพาะ Admin เท่านั้น</p>';
+      return;
+    }
+    let data = await res.json();
+
+    if (filterEvent) data = data.filter(a => a.event_type === filterEvent);
+    if (filterSvc)   data = data.filter(a => a.service    === filterSvc);
+
+    if (!data.length) { tl.innerHTML = '<p class="empty">ยังไม่มี activity ที่ตรงเงื่อนไข</p>'; return; }
+
+    tl.innerHTML = `<div class="timeline">${data.map(a => {
+      const dotClass = `dot-${a.event_type}` in dotMap ? `dot-${a.event_type}` : 'dot-default';
+      const svcClass = a.service === 'auth-service' ? 'svc-auth'
+                     : a.service === 'task-service'  ? 'svc-task' : 'svc-default';
+      const meta     = a.entity_type ? `${a.entity_type} #${a.entity_id}` : '';
+      return `
+        <div class="tl-item">
+          <div class="tl-dot ${dotClass}"></div>
+          <div class="tl-content">
+            <div class="tl-header">
+              <span class="tl-event">
+                <span class="badge-service ${svcClass}">${a.service}</span>
+                ${a.event_type}
+              </span>
+              <span class="tl-time">${fmt(a.created_at)}</span>
+            </div>
+            <div class="tl-meta">
+              ${a.user_id ? `👤 user #${a.user_id}` : ''}
+              ${meta      ? ` &nbsp;·&nbsp; 📌 ${meta}` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('')}</div>`;
+  } catch { tl.innerHTML = '<p class="empty" style="color:red">โหลดไม่สำเร็จ</p>'; }
+}
+
+const dotMap = {
+  'dot-task_created':1,'dot-task_updated':1,'dot-task_deleted':1,
+  'dot-user_login':1,'dot-user_registered':1,
+};
+
+function fmt(d) { return new Date(d).toLocaleString('th-TH'); }
+</script>
+</body>
+</html>
