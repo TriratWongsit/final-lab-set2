@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔐 Task Board — Final Lab Set 2</title>
+  <title>🔐 Task Board — Final Lab Sec2 Set 2</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0f172a; --surface: #1e293b; --surface2: #273448;
       --border: #334155; --text: #e2e8f0; --muted: #94a3b8;
       --blue: #3b82f6; --green: #22c55e; --yellow: #f59e0b;
-      --red: #ef4444; --purple: #a855f7;
+      --red: #ef4444; --purple: #a855f7; --teal: #14b8a6;
     }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
     #auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
@@ -27,12 +27,12 @@
     .btn-primary { width: 100%; background: var(--blue); color: #fff; border: none; padding: .7rem; border-radius: .5rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
     .btn-primary:hover { opacity: .85; }
     .auth-msg { margin-top: .65rem; padding: .45rem .75rem; border-radius: .4rem; font-size: .83rem; text-align: center; }
-    .auth-msg.error   { background: rgba(239,68,68,.15);  color: var(--red);   }
+    .auth-msg.error   { background: rgba(239,68,68,.15);  color: var(--red); }
     .auth-msg.success { background: rgba(34,197,94,.15);  color: var(--green); }
     #app-page { display: flex; height: 100vh; }
     .hidden { display: none !important; }
-    .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-    .sidebar-logo { padding: 1.25rem 1rem; font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border); }
+    .sidebar { width: 230px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-logo { padding: 1.25rem 1rem; font-size: 1rem; font-weight: 700; border-bottom: 1px solid var(--border); }
     .sidebar-nav { flex: 1; padding: .5rem; display: flex; flex-direction: column; gap: .25rem; }
     .nav-item { display: flex; align-items: center; gap: .65rem; padding: .6rem .85rem; border-radius: .5rem; border: none; background: transparent; color: var(--muted); font-size: .88rem; cursor: pointer; transition: background .15s, color .15s; text-decoration: none; width: 100%; text-align: left; }
     .nav-item:hover { background: var(--surface2); color: var(--text); }
@@ -42,7 +42,7 @@
     .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; flex-shrink: 0; }
     .user-chip > div { flex: 1; overflow: hidden; }
     .user-chip > div > div:first-child { font-size: .85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .user-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: .2rem; }
+    .user-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
     .role-badge { font-size: .68rem; font-weight: 700; padding: .1rem .45rem; border-radius: .3rem; }
     .role-member { background: rgba(59,130,246,.15); color: var(--blue); }
     .role-admin  { background: rgba(168,85,247,.15); color: var(--purple); }
@@ -63,22 +63,12 @@
     .chip-todo        { background: rgba(148,163,184,.15); color: var(--muted); }
     .chip-in_progress { background: rgba(245,158,11,.15);  color: var(--yellow); }
     .chip-done        { background: rgba(34,197,94,.15);   color: var(--green); }
-    .chip-high        { background: rgba(239,68,68,.15);   color: var(--red); }
-    .chip-medium      { background: rgba(245,158,11,.15);  color: var(--yellow); }
-    .chip-low         { background: rgba(34,197,94,.15);   color: var(--green); }
-    .chip-owner       { background: rgba(59,130,246,.1);   color: var(--blue); }
+    .chip-high   { background: rgba(239,68,68,.15);  color: var(--red); }
+    .chip-medium { background: rgba(245,158,11,.15); color: var(--yellow); }
+    .chip-low    { background: rgba(34,197,94,.15);  color: var(--green); }
+    .chip-owner  { background: rgba(59,130,246,.1);  color: var(--blue); }
     .task-actions { display: flex; gap: .4rem; }
     .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
-    .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; padding: 1.5rem; max-width: 560px; margin-bottom: 1.25rem; }
-    .profile-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-    .profile-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; }
-    .info-row { display: flex; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
-    .info-row:last-child { border-bottom: none; }
-    .info-label { color: var(--muted); }
-    .bio-edit { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: .6rem .75rem; border-radius: .5rem; font-size: .88rem; outline: none; resize: vertical; min-height: 80px; margin-top: .35rem; }
-    .jwt-inspector { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; padding: 1.25rem; max-width: 560px; }
-    .jwt-inspector h3 { font-size: .95rem; font-weight: 700; margin-bottom: .75rem; }
-    .jwt-code { background: var(--bg); border: 1px solid var(--border); border-radius: .4rem; padding: .6rem .75rem; font-family: 'Courier New', monospace; font-size: .78rem; word-break: break-all; line-height: 1.5; margin-bottom: .65rem; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 1rem; }
     .modal { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; padding: 1.5rem; width: 100%; max-width: 440px; }
     .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
@@ -93,18 +83,19 @@
   </style>
 </head>
 <body>
+<script src="config.js"></script>
 
 <!-- ════ AUTH PAGE ════ -->
 <div id="auth-page">
   <div class="auth-box">
     <div class="auth-logo">🔐</div>
-    <div class="auth-title">Task Board — Final Lab Set 2</div>
+    <div class="auth-title">Task Board — Sec2 Set 2</div>
     <div class="tabs">
       <button class="tab active" id="tab-login"    onclick="switchTab('login')">เข้าสู่ระบบ</button>
       <button class="tab"        id="tab-register" onclick="switchTab('register')">สมัครสมาชิก</button>
     </div>
 
-    <!-- Login Form -->
+    <!-- Login -->
     <div id="login-form">
       <div class="form-group"><label>Email</label>
         <input id="login-email" type="email" value="alice@lab.local"></div>
@@ -112,15 +103,15 @@
         <input id="login-password" type="password" value="alice123"
                onkeydown="if(event.key==='Enter') doLogin()"></div>
       <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
-      <div style="margin-top:.75rem;padding:.6rem;background:rgba(59,130,246,.08);border-radius:.5rem;font-size:.78rem;color:var(--muted)">
-        Seed: alice@lab.local/alice123 · bob@lab.local/bob456 · admin@lab.local/adminpass
+      <div style="margin-top:.65rem;padding:.55rem;background:rgba(59,130,246,.08);border-radius:.5rem;font-size:.78rem;color:var(--muted)">
+        Seed: alice@lab.local/alice123 · admin@lab.local/adminpass
       </div>
     </div>
 
-    <!-- Register Form -->
+    <!-- Register -->
     <div id="register-form" class="hidden">
       <div class="form-group"><label>Username</label>
-        <input id="reg-username" type="text" placeholder="ชื่อผู้ใช้"></div>
+        <input id="reg-name" type="text" placeholder="ชื่อผู้ใช้"></div>
       <div class="form-group"><label>Email</label>
         <input id="reg-email" type="email" placeholder="email@example.com"></div>
       <div class="form-group"><label>Password (อย่างน้อย 6 ตัวอักษร)</label>
@@ -138,18 +129,14 @@
   <nav class="sidebar">
     <div class="sidebar-logo">📋 Task Board</div>
     <div class="sidebar-nav">
-      <button class="nav-item active" data-page="tasks"   onclick="showPage('tasks')">
+      <button class="nav-item active" data-page="tasks" onclick="showPage('tasks')">
         <span>✅</span> Tasks
+        <span class="badge-count" id="task-count" style="margin-left:auto;background:rgba(59,130,246,.2);color:var(--blue);font-size:.7rem;padding:.1rem .45rem;border-radius:.3rem;display:none">0</span>
       </button>
-      <button class="nav-item"        data-page="profile" onclick="showPage('profile')">
-        <span>👤</span> Profile &amp; JWT
-      </button>
-      <a href="users.html" target="_blank" class="nav-item" style="text-decoration:none">
-        <span>👥</span> Users
-        <span style="margin-left:auto;font-size:.7rem;color:var(--muted)">↗</span>
-      </a>
-      <a href="logs.html" target="_blank" class="nav-item" style="text-decoration:none">
-        <span>📊</span> Log Dashboard
+      <!-- ❌ ไม่มี Profile tab (ไม่มี User Service ใน Sec2 Set 2) -->
+      <!-- ✅ Activity Timeline link -->
+      <a href="activity.html" target="_blank" class="nav-item" style="text-decoration:none">
+        <span>📅</span> Activity Timeline
         <span style="margin-left:auto;font-size:.7rem;color:var(--muted)">↗</span>
       </a>
     </div>
@@ -166,39 +153,12 @@
   </nav>
 
   <div class="main-content">
-    <!-- Tasks Page -->
     <div id="page-tasks">
       <div class="page-title">
         <span>✅ Tasks</span>
         <button class="btn btn-blue" onclick="openCreateModal()">+ สร้าง Task</button>
       </div>
       <div id="tasks-container"><div class="empty-state">⏳ กำลังโหลด...</div></div>
-    </div>
-
-    <!-- Profile Page -->
-    <div id="page-profile" class="hidden">
-      <div class="page-title"><span>👤 Profile &amp; JWT</span></div>
-      <div class="profile-card">
-        <div class="profile-header">
-          <div class="profile-avatar" id="prof-avatar">?</div>
-          <div>
-            <div style="font-size:1.1rem;font-weight:700" id="prof-name">—</div>
-            <div style="font-size:.83rem;color:var(--muted)" id="prof-email">—</div>
-            <span class="role-badge" id="prof-role-badge">—</span>
-          </div>
-        </div>
-        <div class="info-row"><span class="info-label">User ID</span><span id="prof-id">—</span></div>
-        <div class="info-row"><span class="info-label">Role</span><span id="prof-role">—</span></div>
-        <div class="info-row"><span class="info-label">สร้างเมื่อ</span><span id="prof-created">—</span></div>
-        <div class="info-row">
-          <span class="info-label">Bio</span>
-          <div style="flex:1;margin-left:1rem">
-            <textarea class="bio-edit" id="prof-bio" placeholder="เขียนแนะนำตัวเอง..."></textarea>
-            <button class="btn btn-blue btn-sm" style="margin-top:.4rem" onclick="saveBio()">💾 บันทึก Bio</button>
-          </div>
-        </div>
-      </div>
-      <div class="jwt-inspector" id="jwt-inspector"></div>
     </div>
   </div>
 </div>
@@ -245,10 +205,17 @@
 <div id="toast-container"></div>
 
 <script>
-const API = '';
+const AUTH     = window.APP_CONFIG.AUTH_URL;
+const TASK     = window.APP_CONFIG.TASK_URL;
+const ACTIVITY = window.APP_CONFIG.ACTIVITY_URL;
+
 let token = localStorage.getItem('jwt_token');
 let currentUser = null;
 let editingTaskId = null;
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
 
 // ── Auth tabs ─────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -270,29 +237,44 @@ async function doLogin() {
   const password = document.getElementById('login-password').value;
   if (!email || !password) { showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
   try {
-    const res  = await fetch(`${API}/api/auth/login`, {
+    const res  = await fetch(`${AUTH}/api/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
-    if (res.ok) { token = data.token; localStorage.setItem('jwt_token', token); initApp(data.user); }
-    else showAuthMsg('❌ ' + (data.error || 'Login ล้มเหลว'), 'error');
+    if (res.ok) {
+      token = data.token; localStorage.setItem('jwt_token', token); initApp(data.user);
+    } else {
+      showAuthMsg('❌ ' + (data.error || 'Login ล้มเหลว'), 'error');
+    }
   } catch (e) { showAuthMsg('❌ ไม่สามารถเชื่อมต่อ server', 'error'); }
 }
 
 async function doRegister() {
-  const username = document.getElementById('reg-username').value.trim();
+  const username = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
   if (!username || !email || !password) { showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
   try {
-    const res  = await fetch(`${API}/api/auth/register`, {
+    const res  = await fetch(`${AUTH}/api/auth/register`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password })
     });
     const data = await res.json();
-    if (res.ok) { token = data.token; localStorage.setItem('jwt_token', token); initApp(data.user); }
-    else showAuthMsg('❌ ' + (data.error || 'สมัครไม่สำเร็จ'), 'error');
+    if (res.ok) {
+      showAuthMsg('✅ สมัครสมาชิกสำเร็จ! กำลังเข้าสู่ระบบ...', 'success');
+      // register ไม่คืน token → login ต่อทันที
+      const loginRes  = await fetch(`${AUTH}/api/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const loginData = await loginRes.json();
+      if (loginRes.ok) {
+        token = loginData.token; localStorage.setItem('jwt_token', token); initApp(loginData.user);
+      }
+    } else {
+      showAuthMsg('❌ ' + (data.error || 'สมัครไม่สำเร็จ'), 'error');
+    }
   } catch (e) { showAuthMsg('❌ ไม่สามารถเชื่อมต่อ server', 'error'); }
 }
 
@@ -300,10 +282,6 @@ function doLogout() {
   localStorage.removeItem('jwt_token'); token = null; currentUser = null;
   document.getElementById('app-page').classList.add('hidden');
   document.getElementById('auth-page').classList.remove('hidden');
-}
-
-function authHeaders() {
-  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 }
 
 function initApp(user) {
@@ -320,22 +298,24 @@ function initApp(user) {
 }
 
 function showPage(page) {
-  ['tasks','profile'].forEach(p => {
+  ['tasks'].forEach(p => {
     document.getElementById(`page-${p}`).classList.toggle('hidden', p !== page);
     const btn = document.querySelector(`[data-page="${p}"]`);
     if (btn) btn.classList.toggle('active', p === page);
   });
-  if (page === 'tasks')   loadTasks();
-  if (page === 'profile') loadProfile();
+  if (page === 'tasks') loadTasks();
 }
 
 // ── Tasks ─────────────────────────────────────────────────────────────
 async function loadTasks() {
   try {
-    const res  = await fetch(`${API}/api/tasks/`, { headers: authHeaders() });
+    const res  = await fetch(`${TASK}/api/tasks`, { headers: authHeaders() });
     if (res.status === 401) { doLogout(); return; }
     const data = await res.json();
     renderTasks(data.tasks || []);
+    const cnt = document.getElementById('task-count');
+    cnt.textContent = data.count || 0;
+    cnt.style.display = data.count ? 'inline' : 'none';
   } catch (e) {
     document.getElementById('tasks-container').innerHTML = '<div class="empty-state">❌ โหลดไม่สำเร็จ</div>';
   }
@@ -343,7 +323,7 @@ async function loadTasks() {
 
 function renderTasks(tasks) {
   const c = document.getElementById('tasks-container');
-  if (!tasks.length) { c.innerHTML = '<div class="empty-state">📭 ยังไม่มี Task</div>'; return; }
+  if (!tasks.length) { c.innerHTML = '<div class="empty-state">📭 ยังไม่มี Task<br><small>กดปุ่ม "+ สร้าง Task" เพื่อเริ่มต้น</small></div>'; return; }
   c.innerHTML = '<div class="tasks-grid">' + tasks.map(t => `
     <div class="task-card">
       <div class="task-title">${escHtml(t.title)}</div>
@@ -351,11 +331,11 @@ function renderTasks(tasks) {
       <div class="task-meta">
         <span class="chip chip-${(t.status||'').toLowerCase()}">${t.status}</span>
         <span class="chip chip-${t.priority}">${t.priority}</span>
-        <span class="chip chip-owner">👤 ${escHtml(t.username||'?')}</span>
+        <span class="chip chip-owner">👤 ${escHtml(t.username || String(t.user_id))}</span>
       </div>
       <div class="task-actions">
-        <button class="btn btn-sm btn-gray" onclick="openEditModal(${t.id},'${escHtml(t.title)}','${escHtml(t.description||'')}','${t.status}','${t.priority}')">✏️</button>
-        <button class="btn btn-sm btn-red"  onclick="confirmDelete(${t.id})">🗑️</button>
+        <button class="btn btn-sm btn-gray" onclick="openEditModal(${t.id},'${escHtml(t.title)}','${escHtml(t.description||'')}','${t.status}','${t.priority}')">✏️ แก้ไข</button>
+        <button class="btn btn-sm btn-red"  onclick="confirmDelete(${t.id})">🗑️ ลบ</button>
       </div>
     </div>`).join('') + '</div>';
 }
@@ -363,8 +343,8 @@ function renderTasks(tasks) {
 function openCreateModal() {
   editingTaskId = null;
   document.getElementById('modal-title').textContent = 'สร้าง Task ใหม่';
-  document.getElementById('m-title').value = '';
-  document.getElementById('m-desc').value  = '';
+  document.getElementById('m-title').value    = '';
+  document.getElementById('m-desc').value     = '';
   document.getElementById('m-status').value   = 'TODO';
   document.getElementById('m-priority').value = 'medium';
   document.getElementById('task-modal').classList.remove('hidden');
@@ -378,12 +358,13 @@ function openEditModal(id, title, desc, status, priority) {
   document.getElementById('m-priority').value = priority;
   document.getElementById('task-modal').classList.remove('hidden');
 }
-function closeModal() { document.getElementById('task-modal').classList.add('hidden'); }
+function closeModal()   { document.getElementById('task-modal').classList.add('hidden'); }
+function closeConfirm() { document.getElementById('confirm-modal').classList.add('hidden'); }
+
 function confirmDelete(id) {
   document.getElementById('confirm-modal').classList.remove('hidden');
   document.getElementById('confirm-delete-btn').onclick = () => deleteTask(id);
 }
-function closeConfirm() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
 async function submitTask() {
   const title       = document.getElementById('m-title').value.trim();
@@ -391,7 +372,7 @@ async function submitTask() {
   const status      = document.getElementById('m-status').value;
   const priority    = document.getElementById('m-priority').value;
   if (!title) { toast('กรุณากรอกชื่อ Task', 'error'); return; }
-  const url    = editingTaskId ? `${API}/api/tasks/${editingTaskId}` : `${API}/api/tasks/`;
+  const url    = editingTaskId ? `${TASK}/api/tasks/${editingTaskId}` : `${TASK}/api/tasks`;
   const method = editingTaskId ? 'PUT' : 'POST';
   try {
     const res  = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify({ title, description, status, priority }) });
@@ -400,68 +381,14 @@ async function submitTask() {
     else toast('❌ ' + (data.error || 'เกิดข้อผิดพลาด'), 'error');
   } catch (e) { toast('❌ ไม่สามารถเชื่อมต่อ server', 'error'); }
 }
+
 async function deleteTask(id) {
   closeConfirm();
   try {
-    const res = await fetch(`${API}/api/tasks/${id}`, { method: 'DELETE', headers: authHeaders() });
+    const res = await fetch(`${TASK}/api/tasks/${id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) { toast('🗑️ ลบสำเร็จ', 'success'); loadTasks(); }
     else { const d = await res.json(); toast('❌ ' + (d.error || 'ลบไม่สำเร็จ'), 'error'); }
   } catch (e) { toast('❌ error', 'error'); }
-}
-
-// ── Profile ───────────────────────────────────────────────────────────
-async function loadProfile() {
-  try {
-    const [authRes, profileRes] = await Promise.all([
-      fetch(`${API}/api/auth/me`,    { headers: authHeaders() }),
-      fetch(`${API}/api/users/me`,   { headers: authHeaders() })
-    ]);
-    const authData    = authRes.ok    ? await authRes.json()    : {};
-    const profileData = profileRes.ok ? await profileRes.json() : {};
-    const u = authData.user || currentUser;
-    const p = profileData.profile || {};
-
-    document.getElementById('prof-avatar').textContent  = (u.username||'?').charAt(0).toUpperCase();
-    document.getElementById('prof-name').textContent    = u.username || '—';
-    document.getElementById('prof-email').textContent   = u.email;
-    document.getElementById('prof-id').textContent      = u.id || '—';
-    document.getElementById('prof-role').textContent    = u.role;
-    document.getElementById('prof-created').textContent =
-      u.created_at ? new Date(u.created_at).toLocaleString('th-TH') : '—';
-    document.getElementById('prof-bio').value = p.bio || '';
-    const rb = document.getElementById('prof-role-badge');
-    rb.textContent = u.role; rb.className = `role-badge role-${u.role}`;
-  } catch (e) {}
-  renderJwtInspector();
-}
-
-async function saveBio() {
-  const bio = document.getElementById('prof-bio').value;
-  try {
-    const res = await fetch(`${API}/api/users/me`, {
-      method: 'PUT', headers: authHeaders(), body: JSON.stringify({ bio })
-    });
-    if (res.ok) toast('✅ บันทึก Bio สำเร็จ', 'success');
-    else toast('❌ บันทึกไม่สำเร็จ', 'error');
-  } catch (e) { toast('❌ error', 'error'); }
-}
-
-function renderJwtInspector() {
-  const c = document.getElementById('jwt-inspector');
-  if (!token) { c.innerHTML = '<p style="color:var(--muted)">ไม่มี JWT token</p>'; return; }
-  try {
-    const parts   = token.split('.');
-    const header  = JSON.parse(atob(parts[0]));
-    const payload = JSON.parse(atob(parts[1]));
-    const exp     = payload.exp ? new Date(payload.exp * 1000).toLocaleString('th-TH') : '—';
-    c.innerHTML = `<h3>🔍 JWT Inspector</h3>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:.35rem">Header</div>
-      <div class="jwt-code">${escHtml(JSON.stringify(header, null, 2))}</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:.35rem">Payload</div>
-      <div class="jwt-code">${escHtml(JSON.stringify(payload, null, 2))}</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:.35rem">Expires</div>
-      <div class="jwt-code">${escHtml(exp)}</div>`;
-  } catch (e) { c.innerHTML = '<p style="color:var(--red)">JWT parse error</p>'; }
 }
 
 function escHtml(s) {
@@ -474,10 +401,11 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 3000);
 }
 
+// Auto-login
 if (token) {
   (async () => {
     try {
-      const res  = await fetch(`${API}/api/auth/verify`, { headers: { Authorization: `Bearer ${token}` } });
+      const res  = await fetch(`${AUTH}/api/auth/verify`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.valid) initApp(data.user);
       else { localStorage.removeItem('jwt_token'); token = null; }

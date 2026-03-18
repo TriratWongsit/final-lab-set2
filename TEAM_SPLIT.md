@@ -1,8 +1,8 @@
-# TEAM_SPLIT.md
+# TEAM_SPLIT.md — Final Lab Sec2 Set 2
 
 ## ข้อมูลกลุ่ม
 - รายวิชา: ENGSE207 Software Architecture
-- งาน: Final Lab — ชุดที่ 2: Microservices + Register + User Service + Database-per-Service
+- งาน: Final Lab — ชุดที่ 2: Microservices + Activity Tracking + Cloud (Railway)
 
 ## รายชื่อสมาชิก
 | ลำดับ | ชื่อ-นามสกุล | รหัสนักศึกษา |
@@ -15,88 +15,84 @@
 ## การแบ่งงานหลัก
 
 ### สมาชิกคนที่ 1: นายตรัยรัตน์ วงษ์สิทธิ์ (67543210028-6)
-**Branch: `feature/auth-user-db`**
+**Branch: `feature/auth-register`**
 
 รับผิดชอบงานหลักดังต่อไปนี้
-- **Auth Service** — เพิ่ม `POST /api/auth/register` (validate, bcrypt hash, สร้าง JWT, แจ้ง user-service)
-- **User Service** — สร้าง service ใหม่ทั้งหมด (profile, bio, list users, internal create-profile)
-- **Database schemas** — เขียน `db/auth/init.sql`, `db/user/init.sql` (แยก DB ต่อ service)
-- **Docker Compose** — เพิ่ม auth-db, user-db, user-service; ตั้งค่า depends_on ครบ
-- **Nginx** — เพิ่ม `/api/users/` route, regex rate-limit สำหรับ login+register
+- **Auth Service** — เพิ่ม `POST /api/auth/register`, `logToDB()`, `logActivity()` (fire-and-forget)
+- **auth-service/init.sql** — users table + logs table + seed users
+- **Deploy Auth Service + auth-db บน Railway**
+- **ตั้งค่า ACTIVITY_SERVICE_URL** ใน Auth Service หลัง Activity Service deploy เสร็จ
 
 ### สมาชิกคนที่ 2: นางสาวอภิรญา สายนาคำ (67543210075-7)
-**Branch: `feature/frontend-task-log`**
+**Branch: `feature/activity-task-frontend`**
 
 รับผิดชอบงานหลักดังต่อไปนี้
-- **Task Service** — ปรับให้ใช้ task-db แยก, เปลี่ยน JOIN → เก็บ `username` ใน tasks table โดยตรง
-- **Log Service** — ปรับให้ใช้ log-db แยก
-- **Database schemas** — เขียน `db/task/init.sql`, `db/log/init.sql`
-- **Frontend `index.html`** — เพิ่ม Register tab, switchTab(), `doRegister()`, Bio edit + saveBio()
-- **Frontend `users.html`** — สร้างหน้าใหม่ Users page (admin เห็นทั้งหมด, member เห็นตัวเอง)
-- **Integration Testing** — ทดสอบ Register flow, profile sync, screenshots ครบ 14 รูป
+- **Task Service** — เพิ่ม `logActivity()` ใน CRUD routes ทุกตัว (TASK_CREATED, TASK_STATUS_CHANGED, TASK_DELETED)
+- **task-service/init.sql** — tasks table + logs table
+- **Activity Service** — สร้าง service ใหม่ทั้งหมด (internal endpoint, /me, /all, health)
+- **activity-service/init.sql** — activities table + indexes
+- **Deploy Task + Activity Service บน Railway**
+- **Frontend** — `index.html` (Register tab + Activity link), `activity.html`, `config.js`
 
 ---
 
 ## งานที่ดำเนินการร่วมกัน
-- ออกแบบ Database-per-Service architecture และ service communication flow
-- ทดสอบ integration ระหว่าง auth-service → user-service (create-profile call)
-- ทดสอบระบบแบบ end-to-end (`docker compose up --build`)
-- จัดทำ README และ screenshots ครบ 14 รูป
+- `docker-compose.yml` และ `.env.example`
+- ทดสอบระบบ local ด้วย Docker Compose ก่อน deploy
+- ทดสอบ end-to-end บน Railway (curl commands)
+- `README.md` + screenshots ครบ 14 รูป
+- อัปเดต `config.js` ด้วย Railway URLs จริง
 
 ---
 
 ## เหตุผลในการแบ่งงาน
-แบ่งตาม **service boundary** เช่นเดิมจาก Set 1 โดย
-- สมาชิกคนที่ 1 รับผิดชอบ **authentication layer และ user management** (auth + user + infrastructure)
-- สมาชิกคนที่ 2 รับผิดชอบ **business logic และ presentation layer** (task + log + frontend)
+แบ่งตาม **service boundary** ชัดเจน
+- สมาชิกคนที่ 1 รับผิดชอบ **Auth layer** ซึ่งเป็นจุดเริ่มต้นของทุก event
+- สมาชิกคนที่ 2 รับผิดชอบ **Activity tracking layer** ทั้งผู้ส่ง (task) และผู้รับ (activity service)
 
-การแบ่งแบบนี้ทำให้แต่ละคน commit ได้อย่างชัดเจน ไม่ทับกัน และสามารถ merge เข้า main branch ได้เมื่อทดสอบแล้ว
+แบ่งแบบนี้ทำให้ commit ไม่ทับกัน และแต่ละคน deploy service ของตัวเองได้อิสระ
 
 ---
 
 ## สรุปการเชื่อมโยงงานของสมาชิก
 
 ```
-นายตรัยรัตน์ (auth-service + user-service + db/auth + db/user + nginx + docker-compose)
+นายตรัยรัตน์ (auth-service)
         │
-        │ Register สำเร็จ → auth-service เรียก user-service/internal/create-profile
-        │ JWT_SECRET เดียวกัน → user-service และ task-service verify token ได้
-        │ nginx.conf เพิ่ม /api/users/ route
+        │ POST /api/activity/internal (fire-and-forget)
+        │ event: USER_REGISTERED, USER_LOGIN
         ▼
-นางสาวอภิรญา (task-service + log-service + db/task + db/log + frontend)
+นางสาวอภิรญา (activity-service) ← รับ events ทั้งหมด
+        ▲
+        │ POST /api/activity/internal (fire-and-forget)
+        │ event: TASK_CREATED, TASK_STATUS_CHANGED, TASK_DELETED
         │
-        │ task-service เก็บ req.user.username ลงใน tasks.username โดยตรง
-        │ log-service รับ event REGISTER_SUCCESS จาก auth-service
-        │ frontend index.html เรียก /api/auth/register และ /api/users/me
-        ▼
-    ระบบ Set 2 ที่สมบูรณ์
+นางสาวอภิรญา (task-service)
 ```
 
 **จุดที่ต้องประสานงาน:**
-- `JWT_SECRET` ต้องตรงกันทุก service (อยู่ใน `.env`)
-- รูปแบบ payload ของ `logEvent()` ต้องตรงกับ schema ของ log-db
-- `/api/users/internal/create-profile` ต้องรับ `{user_id, username, email, role}` ตามที่ auth-service ส่งมา
-- `req.user.username` ใน JWT payload ต้องมีค่า (auth-service ต้องใส่ `username` ใน `generateToken`)
+- `JWT_SECRET` ต้องเหมือนกันทุก service (ตั้งใน Railway Variables)
+- `ACTIVITY_SERVICE_URL` ใน auth-service และ task-service ต้องตั้งให้ตรง URL ของ activity-service บน Railway
+- รูปแบบ payload ของ `logActivity()` ต้องตรงกับที่ activity-service รับ
 
 ---
 
 ## แนวทาง Git Commit
 
-### นายตรัยรัตน์ (ตัวอย่าง commit message)
+### นายตรัยรัตน์ (ตัวอย่าง)
 ```
-feat(auth): add POST /api/auth/register route with bcrypt hash
-feat(user-service): create user-service with profile CRUD
-feat(db): add auth/init.sql and user/init.sql for database-per-service
-feat(nginx): add /api/users/ proxy route and regex rate-limit
-feat(docker): add auth-db, user-db, user-service to docker-compose
+feat(auth): add POST /api/auth/register with validation and duplicate check
+feat(auth): add logToDB() helper to write logs to auth-db
+feat(auth): add logActivity() fire-and-forget for USER_REGISTERED and USER_LOGIN
+feat(db): add auth-service/init.sql with users and logs tables
 ```
 
-### นางสาวอภิรญา (ตัวอย่าง commit message)
+### นางสาวอภิรญา (ตัวอย่าง)
 ```
-feat(task): migrate task-service to use separate task-db
-feat(task): store username directly in tasks table (remove JOIN)
-feat(log): migrate log-service to use separate log-db
-feat(frontend): add Register tab and doRegister() function
-feat(frontend): add users.html with admin/member role view
-feat(frontend): add bio edit and saveBio() to profile page
+feat(activity): create activity-service with internal, me, all endpoints
+feat(activity): add activity-service/init.sql with activities table and indexes
+feat(task): add logActivity() for TASK_CREATED, TASK_STATUS_CHANGED, TASK_DELETED
+feat(frontend): add Register tab and doRegister() with auto-login after register
+feat(frontend): add activity.html timeline page with stats and filter
+feat(frontend): add config.js for Railway service URLs
 ```

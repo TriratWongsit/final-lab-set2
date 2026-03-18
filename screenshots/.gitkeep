@@ -1,15 +1,15 @@
-# ใส่ screenshot 14 รูปในโฟลเดอร์นี้
-# 01_docker_running.png
-# 02_register_success.png
-# 03_register_duplicate.png
-# 04_login_success.png
-# 05_login_fail.png
-# 06_create_task.png
-# 07_get_tasks.png
-# 08_update_task.png
-# 09_delete_task.png
-# 10_no_jwt_401.png
-# 11_user_profile.png
-# 12_admin_users.png
-# 13_logs_dashboard.png
-# 14_rate_limit.png
+# ใส่ screenshot 14 รูป (จาก Railway Cloud URL เท่านั้น)
+# 01_railway_dashboard.png
+# 02_auth_register_cloud.png
+# 03_auth_login_cloud.png
+# 04_auth_me_cloud.png
+# 05_activity_me_user_events.png
+# 06_activity_task_created.png
+# 07_activity_status_changed.png
+# 08_task_list_cloud.png
+# 09_protected_401.png
+# 10_member_activity_all_403.png
+# 11_admin_activity_all_200.png
+# 12_readme_architecture.png
+# 13_bonus_graceful_degradation.png  (Bonus)
+# 14_bonus_readme_explanation.png    (Bonus)

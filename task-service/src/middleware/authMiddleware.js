@@ -9,15 +9,6 @@ module.exports = function requireAuth(req, res, next) {
     req.user = jwt.verify(token, SECRET);
     next();
   } catch (err) {
-    fetch('http://log-service:3003/api/logs/internal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service: 'task-service', level: 'ERROR', event: 'JWT_INVALID',
-        ip_address: req.headers['x-real-ip'] || req.ip,
-        message: 'Invalid JWT: ' + err.message
-      })
-    }).catch(() => {});
     return res.status(401).json({ error: 'Unauthorized: ' + err.message });
   }
 };

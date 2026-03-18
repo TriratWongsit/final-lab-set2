@@ -1,27 +1,50 @@
 const express     = require('express');
-const { pool }    = require('../db/db');
+const { Pool }    = require('pg');
 const requireAuth = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-async function logEvent(payload) {
-  try {
-    await fetch('http://log-service:3003/api/logs/internal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service: 'task-service', ...payload })
-    });
-  } catch (_) {}
+function getPool(req) {
+  return req.app.locals.pool;
 }
 
+// ── Helper: log ลง task-db ────────────────────────────────────────────
+async function logToDB(pool, { level, event, userId, message, meta }) {
+  try {
+    await pool.query(
+      `INSERT INTO logs (level, event, user_id, message, meta) VALUES ($1,$2,$3,$4,$5)`,
+      [level, event, userId || null, message || null,
+       meta ? JSON.stringify(meta) : null]
+    );
+  } catch (e) { console.error('[task-log]', e.message); }
+}
+
+// ── Helper: ส่ง activity event (fire-and-forget) ──────────────────────
+function logActivity({ userId, username, eventType, entityId, summary, meta }) {
+  const ACTIVITY_URL = process.env.ACTIVITY_SERVICE_URL || 'http://activity-service:3003';
+  fetch(`${ACTIVITY_URL}/api/activity/internal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: userId, username, event_type: eventType,
+      entity_type: 'task', entity_id: entityId || null,
+      summary, meta: meta || null
+    })
+  }).catch(() => {
+    console.warn('[task] activity-service unreachable — skipping event log');
+  });
+}
+
+// GET /api/tasks/health
 router.get('/health', (_, res) =>
   res.json({ status: 'ok', service: 'task-service', version: '2.0.0' })
 );
 
 router.use(requireAuth);
 
-// GET /api/tasks/ — admin เห็นทั้งหมด, member เห็นของตัวเอง
+// GET /api/tasks
 router.get('/', async (req, res) => {
+  const pool = getPool(req);
   try {
     let result;
     if (req.user.role === 'admin') {
@@ -38,8 +61,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/tasks/
+// POST /api/tasks
 router.post('/', async (req, res) => {
+  const pool = getPool(req);
   const { title, description, status = 'TODO', priority = 'medium' } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
   try {
@@ -49,11 +73,20 @@ router.post('/', async (req, res) => {
       [req.user.sub, req.user.username, title, description, status, priority]
     );
     const task = result.rows[0];
-    await logEvent({
-      level: 'INFO', event: 'TASK_CREATED', user_id: req.user.sub,
-      method: 'POST', path: '/api/tasks', status_code: 201,
+
+    await logToDB(pool, {
+      level: 'INFO', event: 'TASK_CREATED', userId: req.user.sub,
       message: `Task created: "${title}"`, meta: { task_id: task.id }
     });
+
+    // fire-and-forget
+    logActivity({
+      userId: req.user.sub, username: req.user.username,
+      eventType: 'TASK_CREATED', entityId: task.id,
+      summary: `${req.user.username} สร้าง task "${title}"`,
+      meta: { task_id: task.id, title, priority }
+    });
+
     res.status(201).json({ task });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -62,27 +95,42 @@ router.post('/', async (req, res) => {
 
 // PUT /api/tasks/:id
 router.put('/:id', async (req, res) => {
+  const pool = getPool(req);
   const { id } = req.params;
+  const { title, description, status, priority } = req.body;
+
   try {
     const check = await pool.query('SELECT * FROM tasks WHERE id=$1', [id]);
     if (!check.rows[0]) return res.status(404).json({ error: 'Task not found' });
     if (check.rows[0].user_id !== req.user.sub && req.user.role !== 'admin')
       return res.status(403).json({ error: 'Forbidden' });
 
-    const { title, description, status, priority } = req.body;
+    const old = check.rows[0];
     const result = await pool.query(
       `UPDATE tasks SET
          title=$1, description=$2, status=$3, priority=$4, updated_at=NOW()
        WHERE id=$5 RETURNING *`,
       [
-        title       ?? check.rows[0].title,
-        description ?? check.rows[0].description,
-        status      ?? check.rows[0].status,
-        priority    ?? check.rows[0].priority,
+        title       ?? old.title,
+        description ?? old.description,
+        status      ?? old.status,
+        priority    ?? old.priority,
         id
       ]
     );
-    res.json({ task: result.rows[0] });
+    const updated = result.rows[0];
+
+    // ถ้า status เปลี่ยน → ส่ง TASK_STATUS_CHANGED (fire-and-forget)
+    if (status && status !== old.status) {
+      logActivity({
+        userId: req.user.sub, username: req.user.username,
+        eventType: 'TASK_STATUS_CHANGED', entityId: parseInt(id),
+        summary: `${req.user.username} เปลี่ยนสถานะ task #${id} เป็น ${status}`,
+        meta: { task_id: parseInt(id), old_status: old.status, new_status: status }
+      });
+    }
+
+    res.json({ task: updated });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -90,18 +138,24 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/tasks/:id
 router.delete('/:id', async (req, res) => {
+  const pool = getPool(req);
   const { id } = req.params;
   try {
     const check = await pool.query('SELECT * FROM tasks WHERE id=$1', [id]);
     if (!check.rows[0]) return res.status(404).json({ error: 'Task not found' });
     if (check.rows[0].user_id !== req.user.sub && req.user.role !== 'admin')
       return res.status(403).json({ error: 'Forbidden' });
+
     await pool.query('DELETE FROM tasks WHERE id=$1', [id]);
-    await logEvent({
-      level: 'INFO', event: 'TASK_DELETED', user_id: req.user.sub,
-      method: 'DELETE', path: `/api/tasks/${id}`, status_code: 200,
-      message: `Task ${id} deleted`
+
+    // fire-and-forget
+    logActivity({
+      userId: req.user.sub, username: req.user.username,
+      eventType: 'TASK_DELETED', entityId: parseInt(id),
+      summary: `${req.user.username} ลบ task #${id}`,
+      meta: { task_id: parseInt(id) }
     });
+
     res.json({ message: 'Task deleted' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
