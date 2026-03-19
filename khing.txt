@@ -5,12 +5,12 @@ ACTIVITY_URL="https://activity-production-786c.up.railway.app"
 # T2: Register
 curl -X POST $AUTH_URL/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"sec2user","email":"sec2@test.com","password":"123456"}'
+  -d '{"username":"nickuser","email":"nick@test.com","password":"123456"}'
 
 # T3: Login → เก็บ token
 TOKEN=$(curl -s -X POST $AUTH_URL/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"sec2@test.com","password":"123456"}' \
+  -d '{"email":"nick@test.com","password":"123456"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 echo "TOKEN: $TOKEN"
 
